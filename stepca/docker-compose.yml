@@ -1,0 +1,57 @@
+# Step-CA（SCEP 憑證機構）與選用的 Webhook。設定值放在同目錄的 .env。
+#
+#   docker compose run --rm init              # 只需執行一次：建立 CA 與設定
+#   docker compose up -d                      # 靜態挑戰密碼模式（測試）
+#   docker compose --profile webhook up -d    # Webhook 模式（接 Intune / Entra）
+services:
+  stepca:
+    image: smallstep/step-ca:0.30.2
+    container_name: ztna-stepca
+    restart: unless-stopped
+    environment:
+      # 讓 Step-CA 呼叫 Webhook 時信任自己簽發的伺服器憑證
+      SSL_CERT_FILE: /home/step/certs/root_ca.crt
+    ports:
+      - "${HTTPS_PORT:-9000}:9000"   # HTTPS：管理、根憑證下載、SCEP
+      - "${SCEP_PORT:-8080}:8080"    # HTTP：SCEP（訊息本身已加密簽章）
+    volumes:
+      - stepca-data:/home/step
+
+  # 不對外開放連接埠：只有同一個 compose 網路內的 Step-CA 連得到
+  webhook:
+    build: ../phase3_webhook
+    image: ztna-webhook
+    container_name: ztna-webhook
+    profiles: ["webhook"]
+    restart: unless-stopped
+    environment:
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
+      CHALLENGE_MODE: ${CHALLENGE_MODE:-intune}
+      STATIC_CHALLENGE: ${STATIC_CHALLENGE:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      GRAPH_TOKEN: ${GRAPH_TOKEN:-}
+      VLAN_ATTR: ${VLAN_ATTR:-}
+    volumes:
+      - webhook-tls:/tls:ro
+
+  init:
+    image: smallstep/step-ca:0.30.2
+    profiles: ["init"]
+    user: "0"
+    entrypoint: ["sh", "/init/init.sh"]
+    environment:
+      CA_NAME: ${CA_NAME:?請在 .env 設定 CA_NAME}
+      CA_DNS: ${CA_DNS:?請在 .env 設定 CA_DNS}
+      SCEP_CHALLENGE: ${SCEP_CHALLENGE:-}
+      SCEP_PROVISIONER: ${SCEP_PROVISIONER:-intune}
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
+    volumes:
+      - stepca-data:/home/step
+      - webhook-tls:/webhook-tls
+      - ./:/init:ro
+
+volumes:
+  stepca-data:
+  webhook-tls:

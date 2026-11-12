@@ -1,0 +1,21 @@
+# 動態 VLAN：由用戶端憑證 Subject 的 OU=VLANxx 決定回傳的 VLAN。
+# 放在 policy.d/，並在 sites-available/default 的 post-auth 區段呼叫 dynamic_vlan。
+#
+# 一條規則涵蓋所有 VLAN，新增 VLAN 不需要改 RADIUS 設定。
+# 憑證有效但沒有 VLAN OU 時直接拒絕，避免落入設備的預設 VLAN。
+
+dynamic_vlan {
+	if (&TLS-Client-Cert-Subject =~ /OU=VLAN([0-9]{1,4})/) {
+		update reply {
+			&Tunnel-Type := VLAN
+			&Tunnel-Medium-Type := IEEE-802
+			&Tunnel-Private-Group-Id := "%{1}"
+		}
+	}
+	else {
+		update reply {
+			&Reply-Message := "certificate has no VLAN OU"
+		}
+		reject
+	}
+}

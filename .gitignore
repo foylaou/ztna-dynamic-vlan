@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.idea/
+.DS_Store
+
+# 機密：金鑰、憑證、環境變數
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.csr
+*.p12
+*.pfx
+*.srl
+secrets/
+phase2_stepca/work/
+*.local.md

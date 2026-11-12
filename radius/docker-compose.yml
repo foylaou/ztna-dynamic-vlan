@@ -1,0 +1,15 @@
+# 在 Synology Container Manager 部署用。設定值放在同目錄的 .env。
+services:
+  radius:
+    build: .
+    image: ztna-radius
+    container_name: ztna-radius
+    restart: unless-stopped
+    # 使用主機網路，RADIUS 才看得到 FortiGate 的真實來源 IP。
+    # 會佔用 NAS 的 UDP 1812/1813，需先停用 Synology RADIUS Server 套件。
+    network_mode: host
+    environment:
+      FORTIGATE_IP: ${FORTIGATE_IP:?請在 .env 設定 FORTIGATE_IP}
+      RADIUS_SECRET: ${RADIUS_SECRET:?請在 .env 設定 RADIUS_SECRET}
+    volumes:
+      - ${CERTS_DIR:-./certs}:/etc/raddb/certs:ro
